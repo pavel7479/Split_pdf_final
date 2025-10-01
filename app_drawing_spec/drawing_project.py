@@ -5,6 +5,9 @@ import camelot
 from pdf2image import convert_from_path
 import pdfplumber
 import pandas as pd
+import re
+import numpy as np
+from specification_cleaner import SpecificationCleaner
 
 class DrawingProject:
     """Представляет один проект чертежа (один PDF = 1 чертёж + спецификация)."""
@@ -29,8 +32,12 @@ class DrawingProject:
         Если page_nums=None — берём все страницы после первой.
         """
         os.makedirs(self.output_dir, exist_ok=True)
-        output_path = self.output_dir / "specification.xlsx"
-        all_dfs = []
+        output_path_raw = self.output_dir / "specification_raw.xlsx"
+        output_path_clean = self.output_dir / "specification.xlsx"
+        all_dfs_raw = []
+        all_dfs_clean = []
+
+        cleaner = SpecificationCleaner()
 
         try:
             # Если страницы не указаны — берём все после первой
@@ -43,28 +50,36 @@ class DrawingProject:
                 tables = camelot.read_pdf(str(self.pdf_path), pages=str(page_num + 1), flavor="lattice")
                 if tables and len(tables) > 0:
                     df = tables[0].df
-                    all_dfs.append(df)
                 else:
                     # --- pdfplumber fallback ---
                     with pdfplumber.open(self.pdf_path) as pdf:
                         page = pdf.pages[page_num]
                         table = page.extract_table()
-                        if table:
-                            df = pd.DataFrame(table[1:], columns=table[0])
-                            all_dfs.append(df)
+                        if not table:
+                            continue
+                        df = pd.DataFrame(table[1:], columns=table[0])
 
-                df = df.dropna(how="all")  # убираем пустые строки
-                if "POS" in df.iloc[:, 0].values:  # убираем дубли заголовков
-                    df = df[df.iloc[:, 0] != "POS"]
-                all_dfs.append(df)
+                # сохраняем «как есть»
+                all_dfs_raw.append(df)
 
-            if not all_dfs:
+                df_clean = cleaner.clean(df)
+                if not df_clean.empty:
+                    all_dfs_clean.append(df_clean)
+
+            if not all_dfs_raw:
                 return None
 
-            # склеиваем все страницы в один Excel
-            final_df = pd.concat(all_dfs, ignore_index=True)
-            final_df.to_excel(output_path, index=False)
-            return str(output_path)
+            final_raw = pd.concat(all_dfs_raw, ignore_index=True)
+            final_raw.to_excel(output_path_raw, index=False)
+
+            if not all_dfs_clean:
+                return None
+
+            # сохраняем очищенные таблицы
+            final_clean = pd.concat(all_dfs_clean, ignore_index=True)
+            final_clean.to_excel(output_path_clean, index=False)
+
+            return str(output_path_clean)
 
         except Exception as e:
             print(f"[ERROR] Failed to extract specification: {e}")
