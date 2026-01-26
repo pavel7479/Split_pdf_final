@@ -10,8 +10,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def main():
-    input_path = '/root/Split_Pdf/for_test/39_RT100 Rough Terrain Crane Spare parts catalog-1-50.pdf'
-    output_dir = '/root/Split_Pdf/for_test/rezult3'
+    input_path = '/root/Split_Pdf/for_test/26_QUY260CR 32Y Crawler Crane Spare parts catalog-248-278.pdf'
+    output_dir = '/root/Split_Pdf/for_test/отладка/26_QUY260CR 32Y Crawler Crane Spare parts catalog-248-278'
 
     logger.info(f"Запуск обработки файла: {input_path}")
     splitter = PdfCatalogSplitter(input_path, output_dir=output_dir)
